@@ -9,6 +9,7 @@
 #import <UIKit/UIKit.h>
 
 #import <CoreLocation/CoreLocation.h>
+#import <CoreMotion/CoreMotion.h>
 
 #import "ARCoordinate.h"
 
@@ -19,17 +20,13 @@
 @end
 
 
-@interface ARViewController : UIViewController <UIAccelerometerDelegate, CLLocationManagerDelegate> {
+@interface ARViewController : UIViewController <CLLocationManagerDelegate> {
 	CLLocationManager *locationManager;
-	UIAccelerometer *accelerometerManager;
+    CMMotionManager *coremotionManager;
 	
 	ARCoordinate *centerCoordinate;
 	
 	UIImagePickerController *cameraController;
-	
-	NSObject<ARViewDelegate> *delegate;
-	NSObject<CLLocationManagerDelegate> *locationDelegate;
-	NSObject<UIAccelerometerDelegate> *accelerometerDelegate;
 	
 	BOOL scaleViewsBasedOnDistance;
 	double maximumScaleDistance;
@@ -56,7 +53,7 @@
 
 @property (readonly) NSArray *coordinates;
 
-@property BOOL debugMode;
+@property (assign, nonatomic) BOOL debugMode;
 
 @property BOOL scaleViewsBasedOnDistance;
 @property double maximumScaleDistance;
@@ -65,7 +62,7 @@
 @property BOOL rotateViewsBasedOnPerspective;
 @property double maximumRotationAngle;
 
-@property double updateFrequency;
+@property (assign, nonatomic) double updateFrequency;
 
 //adding coordinates to the underlying data model.
 - (void)addCoordinate:(ARCoordinate *)coordinate;
@@ -97,7 +94,7 @@
 
 @property (retain) ARCoordinate *centerCoordinate;
 
-@property (nonatomic, retain) UIAccelerometer *accelerometerManager;
+@property (nonatomic, retain) CMMotionManager * coremotionManager;
 @property (nonatomic, retain) CLLocationManager *locationManager;
 
 @end

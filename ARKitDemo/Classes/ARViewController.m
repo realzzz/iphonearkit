@@ -15,7 +15,7 @@
 
 @implementation ARViewController
 
-@synthesize locationManager, accelerometerManager;
+@synthesize locationManager, coremotionManager;
 @synthesize centerCoordinate;
 
 @synthesize scaleViewsBasedOnDistance, rotateViewsBasedOnPerspective;
@@ -48,7 +48,7 @@
 	
 #if !TARGET_IPHONE_SIMULATOR
 	
-	self.cameraController = [[[UIImagePickerController alloc] init] autorelease];
+	self.cameraController = [[UIImagePickerController alloc] init];
 	self.cameraController.sourceType = UIImagePickerControllerSourceTypeCamera;
 	
 	self.cameraController.cameraViewTransform = CGAffineTransformScale(self.cameraController.cameraViewTransform,
@@ -64,8 +64,6 @@
 	
 	self.rotateViewsBasedOnPerspective = NO;
 	self.maximumRotationAngle = M_PI / 6.0;
-	
-	self.wantsFullScreenLayout = YES;
 	
 	return self;
 }
@@ -85,14 +83,11 @@
 
 // Implement loadView to create a view hierarchy programmatically, without using a nib.
 - (void)loadView {
-	[ar_overlayView release];
 	ar_overlayView = [[UIView alloc] initWithFrame:CGRectZero];
-	
-	[ar_debugView release];
 	
 	if (self.debugMode) {
 		ar_debugView = [[UILabel alloc] initWithFrame:CGRectZero];
-		ar_debugView.textAlignment = UITextAlignmentCenter;
+		ar_debugView.textAlignment = NSTextAlignmentCenter;
 		ar_debugView.text = @"Waiting...";
 		
 		[ar_overlayView addSubview:ar_debugView];
@@ -108,13 +103,12 @@
 	if (!_updateTimer) return;
 	
 	[_updateTimer invalidate];
-	[_updateTimer release];
 	
-	_updateTimer = [[NSTimer scheduledTimerWithTimeInterval:self.updateFrequency
+	_updateTimer = [NSTimer scheduledTimerWithTimeInterval:self.updateFrequency
 													 target:self
 												   selector:@selector(updateLocations:)
 												   userInfo:nil
-													repeats:YES] retain];
+													repeats:YES];
 }
 
 - (void)setDebugMode:(BOOL)flag {
@@ -170,7 +164,7 @@
 	//start our heading readings and our accelerometer readings.
 	
 	if (!self.locationManager) {
-		self.locationManager = [[[CLLocationManager alloc] init] autorelease];
+		self.locationManager = [[CLLocationManager alloc] init];
 		
 		//we want every move.
 		self.locationManager.headingFilter = kCLHeadingFilterNone;
@@ -181,12 +175,16 @@
 	
 	//steal back the delegate.
 	self.locationManager.delegate = self;
-	
-	if (!self.accelerometerManager) {
-		self.accelerometerManager = [UIAccelerometer sharedAccelerometer];
-		self.accelerometerManager.updateInterval = 0.01;
-		self.accelerometerManager.delegate = self;
-	}
+    
+    if (!self.coremotionManager) {
+        self.coremotionManager = [[CMMotionManager alloc]init];
+        self.coremotionManager.accelerometerUpdateInterval = 0.01;
+        __weak __typeof(self) weakSelf = self;
+        [self.coremotionManager startAccelerometerUpdatesToQueue:[NSOperationQueue mainQueue] withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
+            [weakSelf coreMontiondidAccelerate:accelerometerData];
+        }];
+    }
+    
 	
 	if (!self.centerCoordinate) {
 		self.centerCoordinate = [ARCoordinate coordinateWithRadialDistance:0 inclination:0 azimuth:0];
@@ -229,18 +227,10 @@
 #define kFilteringFactor 0.05
 UIAccelerationValue rollingX, rollingZ;
 
-- (void)accelerometer:(UIAccelerometer *)accelerometer didAccelerate:(UIAcceleration *)acceleration {
-	// -1 face down.
-	// 1 face up.
-	
-	//update the center coordinate.
-	
-	//NSLog(@"x: %f y: %f z: %f", acceleration.x, acceleration.y, acceleration.z);
-	
-	//this should be different based on orientation.
-	
-	rollingZ  = (acceleration.z * kFilteringFactor) + (rollingZ  * (1.0 - kFilteringFactor));
-    rollingX = (acceleration.y * kFilteringFactor) + (rollingX * (1.0 - kFilteringFactor));
+- (void)coreMontiondidAccelerate:(CMAccelerometerData *)acceleration {
+    
+    rollingZ  = (acceleration.acceleration.z * kFilteringFactor) + (rollingZ  * (1.0 - kFilteringFactor));
+    rollingX = (acceleration.acceleration.y * kFilteringFactor) + (rollingX * (1.0 - kFilteringFactor));
 	
 	if (rollingZ > 0.0) {
 		self.centerCoordinate.inclination = atan(rollingX / rollingZ) + M_PI / 2.0;
@@ -251,11 +241,7 @@ UIAccelerationValue rollingX, rollingZ;
 	} else if (rollingX >= 0) {
 		self.centerCoordinate.inclination = 3 * M_PI/2.0;
 	}
-	
-	if (self.accelerometerDelegate && [self.accelerometerDelegate respondsToSelector:@selector(accelerometer:didAccelerate:)]) {
-		//forward the acceleromter.
-		[self.accelerometerDelegate accelerometer:accelerometer didAccelerate:acceleration];
-	}
+    
 }
 
 NSComparisonResult LocationSortClosestFirst(ARCoordinate *s1, ARCoordinate *s2, void *ignore) {
@@ -413,17 +399,19 @@ NSComparisonResult LocationSortClosestFirst(ARCoordinate *s1, ARCoordinate *s2, 
 - (void)viewDidAppear:(BOOL)animated {
 #if !TARGET_IPHONE_SIMULATOR
 	[self.cameraController setCameraOverlayView:ar_overlayView];
-	[self presentModalViewController:self.cameraController animated:NO];
+    [self presentViewController:self.cameraController animated:NO completion:^{
+        
+    }];
 	
 	[ar_overlayView setFrame:self.cameraController.view.bounds];
 #endif
 	
 	if (!_updateTimer) {
-		_updateTimer = [[NSTimer scheduledTimerWithTimeInterval:self.updateFrequency
+		_updateTimer = [NSTimer scheduledTimerWithTimeInterval:self.updateFrequency
 													 target:self
 												   selector:@selector(updateLocations:)
 												   userInfo:nil
-													repeats:YES] retain];
+													repeats:YES];
 	}
 	
 	[super viewDidAppear:animated];
@@ -453,18 +441,7 @@ NSComparisonResult LocationSortClosestFirst(ARCoordinate *s1, ARCoordinate *s2, 
 - (void)viewDidUnload {
 	// Release any retained subviews of the main view.
 	// e.g. self.myOutlet = nil;
-	[ar_overlayView release];
 	ar_overlayView = nil;
-}
-
-
-- (void)dealloc {
-	[ar_debugView release];
-	
-	[ar_coordinateViews release];
-	[ar_coordinates release];
-	
-    [super dealloc];
 }
 
 @end

@@ -23,7 +23,7 @@
 	
 	newCoordinate.title = @"";
 	
-	return [newCoordinate autorelease];
+	return newCoordinate;
 }
 
 - (NSUInteger)hash{
@@ -45,19 +45,11 @@
 	equal = equal && self.inclination == otherCoordinate.inclination;
 	equal = equal && self.azimuth == otherCoordinate.azimuth;
 		
-	if (self.title && otherCoordinate.title || self.title && !otherCoordinate.title || !self.title && otherCoordinate.title) {
+	if ((self.title && otherCoordinate.title) || (self.title && !otherCoordinate.title) || (!self.title && otherCoordinate.title)) {
 		equal = equal && [self.title isEqualToString:otherCoordinate.title];
 	}
 	
 	return equal;
-}
-
-- (void)dealloc {
-	
-	self.title = nil;
-	self.subtitle = nil;
-	
-	[super dealloc];
 }
 
 - (NSString *)description {
